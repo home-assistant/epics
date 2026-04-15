@@ -1,5 +1,5 @@
 name: Epic
-description: For staff only - Create an epic
+description: For OHF staff, authorized contributors, and organisation members only - Create an epic
 type: Epic
 body:
   - type: markdown
@@ -17,36 +17,55 @@ body:
         ---
 
         ### For authorized contributors
-        Use this form to create epics - larger bodies of work consisting of multiple tasks that may span across multiple repositories.
+        Use this form to create epics: larger bodies of work consisting of multiple tasks that may span across multiple repositories.
+        
+        Please make sure to add the necessary relationships (blocking to, blocked by, parents) in the sidebar on the right after creation.
+
+  - type: textarea
+    id: roadmap_opportunity
+    attributes:
+      label: Roadmap opportunity
+      value: "This epic tracks the delivery of the following roadmap opportunity: "
+    validations:
+      required: false
 
   - type: textarea
     id: description
     attributes:
       label: Description
-      description: |
-        Provide a clear and detailed description of the epic that needs to be accomplished.
-        Be specific about what needs to be done, why it's important, and the expected outcome.
-      placeholder: |
-        Describe the epic, including:
-        - What needs to be done
-        - Why this epic is needed
-        - Expected outcome
-        - Key objectives and deliverables
+      description: Briefly describe the problem to solve and the desired outcome.
     validations:
       required: true
 
   - type: textarea
-    id: additional_context
+    id: scope
+    attributes:
+      label: Deliverables/features
+      description: List the concrete deliverables and features included in this epic.
+      value: |
+        - 
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Completion criteria
+      description: Define the criteria for this epic to be considered complete.
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
     attributes:
       label: Additional context
       description: |
         Any additional information, links, research, or context that would be helpful.
-        Include links to related roadmap opportunities, feature requests, scope boundaries, etc.
+        Include links to related feature requests, design documents, research, Discord channel, etc.
       placeholder: |
-        - Roadmap opportunity: [links]
         - Feature request: [link]
         - Technical design documents: [link]
-        - Scope boundaries: [what's in/out of scope]
-        - Dependencies: [other epics or work that must be completed first]
+        - Research: [link]
+        - Discord channel: [link]
     validations:
       required: false
