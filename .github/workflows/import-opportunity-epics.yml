@@ -1,0 +1,82 @@
+name: Import opportunity epics automatically
+
+on:
+  schedule:
+    # :17 past every hour. Off-the-hour deliberately: on-the-hour cron jobs
+    # are heavily delayed by GitHub due to load.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+# Prevents two scheduled runs from overlapping if one runs long.
+concurrency:
+  group: import-opportunity-epics
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find epics with roadmap parent and add to board
+        env:
+          GH_TOKEN: ${{ secrets.ROADMAP_BOARD_PAT }}
+        run: |
+          set -euo pipefail
+
+          # Resolve project ID once.
+          PROJECT_ID=$(gh api graphql -f query='
+            query($org: String!, $number: Int!) {
+              organization(login: $org) {
+                projectV2(number: $number) { id }
+              }
+            }' -F org="home-assistant" -F number=45 --jq '.data.organization.projectV2.id')
+
+          echo "Project ID: $PROJECT_ID"
+
+          # Page through open issues, pulling parent info.
+          CURSOR="null"
+          PROCESSED=0
+
+          while : ; do
+            RESPONSE=$(gh api graphql -f query='
+              query($cursor: String) {
+                repository(owner: "home-assistant", name: "epics") {
+                  issues(states: OPEN, first: 100, after: $cursor) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes {
+                      id
+                      number
+                      parent {
+                        repository { nameWithOwner }
+                      }
+                    }
+                  }
+                }
+              }' -F cursor="$CURSOR")
+
+            # Filter to issues whose parent is in the roadmap repo.
+            MATCHES=$(echo "$RESPONSE" | jq -r '
+              .data.repository.issues.nodes[]
+              | select(.parent.repository.nameWithOwner == "OpenHomeFoundation/roadmap")
+              | "\(.id) \(.number)"')
+
+            while IFS=' ' read -r ISSUE_ID ISSUE_NUM; do
+              [ -z "$ISSUE_ID" ] && continue
+              # Idempotent: returns existing item if already on the board.
+              gh api graphql -f query='
+                mutation($project: ID!, $item: ID!) {
+                  addProjectV2ItemById(input: {projectId: $project, contentId: $item}) {
+                    item { id }
+                  }
+                }' -F project="$PROJECT_ID" -F item="$ISSUE_ID" > /dev/null
+              echo "Ensured epic #$ISSUE_NUM on board"
+              PROCESSED=$((PROCESSED + 1))
+            done <<< "$MATCHES"
+
+            HAS_NEXT=$(echo "$RESPONSE" | jq -r '.data.repository.issues.pageInfo.hasNextPage')
+            if [ "$HAS_NEXT" != "true" ]; then break; fi
+            CURSOR=$(echo "$RESPONSE" | jq -r '.data.repository.issues.pageInfo.endCursor')
+          done
+
+          echo "Done. Processed $PROCESSED epics with roadmap parents."
